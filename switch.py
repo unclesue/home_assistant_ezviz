@@ -12,6 +12,7 @@ from .const import (
     DOMAIN, 
     CONF_SWITCHS,
     SWITCH_TYPES,
+    PRIVACY_PRESETS,
 )
 
 TIMEOUT_SECONDS=10
@@ -31,24 +32,29 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         _LOGGER.debug(evzizcameras)
         if isinstance(devices, list):
             for device in devices:
-                switchtypes = {}
-                switchtypes["soundswitch"] = SWITCH_TYPES["soundswitch"]
-                if coordinator.data["capacity"][device["deviceSerial"]].get("support_privacy") == '1':
-                    switchtypes["on_off"] = SWITCH_TYPES["on_off"]
-                # 云台隐私遮蔽（只要支持 PTZ 就加）
-                if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_preset") == '1':
-                    _LOGGER.warning("ptz_preset", coordinator.data["capacity"][device["deviceSerial"]].get("ptz_preset"))
-                    switchtypes["privacy_preset"] = SWITCH_TYPES["privacy_preset"]
-                if coordinator.data["capacity"][device["deviceSerial"]].get("support_defence") == '1':
-                    switchtypes["defence"] = SWITCH_TYPES["defence"]
-                switchtypes = {key: value for key, value in switchtypes.items() if value is not None}    
-                for swtich in switchtypes:
-                    if swtich in haswitchs or swtich == "defence":
-                        switchs.append(EzvizSwitch(hass, swtich, coordinator, device["deviceSerial"]))
-                    elif swtich == "privacy_preset":
-                        switchs.append(EzvizSwitch(hass, swtich, coordinator, device["deviceSerial"]))
+                for devicechannel in evzizcameras:
+                    if devicechannel["deviceSerial"] == device["deviceSerial"] and devicechannel["permission"] == -1:
+                        switchtypes = {}
+                        switchtypes["soundswitch"] = SWITCH_TYPES["soundswitch"]
+                        if coordinator.data["capacity"][device["deviceSerial"]].get("support_privacy") == '1':
+                            switchtypes["on_off"] = SWITCH_TYPES["on_off"]
+                        # 云台隐私遮蔽（只要支持 PTZ 就加）
+                        # if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_preset") == '1':
+                        #     switchtypes["privacy_preset"] = SWITCH_TYPES["privacy_preset"]
+                        if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_preset") == '1':
+                            switchs.append(EzvizPrivacySwitch(hass, 'privacy_preset', coordinator, device["deviceSerial"], devicechannel["channelNo"]))
+                        if coordinator.data["capacity"][device["deviceSerial"]].get("support_defence") == '1':
+                            switchtypes["defence"] = SWITCH_TYPES["defence"]
+                        switchtypes = {key: value for key, value in switchtypes.items() if value is not None}    
+                        for swtich in switchtypes:
+                            if swtich in haswitchs or swtich == "defence":
+                                switchs.append(EzvizSwitch(hass, swtich, coordinator, device["deviceSerial"]))
+                            # elif swtich == "privacy_preset":
+                            #     switchs.append(EzvizSwitch(hass, swtich, coordinator, device["deviceSerial"]))
+                # 设置侦测
+                switchs.append(EzvizPrivacySwitch(hass, 'detect', coordinator, device["deviceSerial"], devicechannel["channelNo"]))
+                
             async_add_entities(switchs, False)
-            
 
 class EzvizSwitch(SwitchEntity):
     _attr_has_entity_name = True
@@ -275,4 +281,72 @@ class EzvizSwitch(SwitchEntity):
         _LOGGER.debug(resdata)
   
 
+class EzvizPrivacySwitch(SwitchEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, hass, kind, coordinator, deviceserial, channelno):
+        self._hass = hass
+        self.kind = kind
+        self.coordinator = coordinator
+        self._deviceserial = deviceserial
+        self._channelno = channelno
+
+        self._devicename = None
+        self._deviceType = None
+        self._deviceVersion = None
+        
+        for switchdata in self.coordinator.data["devicelistinfo"]:
+            if switchdata["deviceSerial"] == self._deviceserial:
+                self._devicename = switchdata["deviceName"]
+                self._deviceType = switchdata["deviceType"]
+                self._deviceVersion = switchdata["deviceVersion"]
+                
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, self._deviceserial)},
+            "name": self._devicename,
+            "manufacturer": "Ezviz",
+            "model": self._deviceType,
+            "sw_version": self._deviceVersion,
+        }
+
+        self._is_on = SWITCH_TYPES[self.kind][3]  # HA 内部状态
+        self._attr_icon = "mdi:eye-off"
+        self._attr_name = SWITCH_TYPES[self.kind][1]
+        self._attr_unique_id = f"{DOMAIN}_switch_{self.kind}_{self._deviceserial}"
+
+    @property
+    def is_on(self):
+        return self._is_on
+
+    async def async_turn_on(self, **kwargs):
+        await self._switch("on")
+        self._is_on = True
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs):
+        await self._switch("off")
+        self._is_on = False
+        self.async_write_ha_state()
+
+    async def _switch(self, state: str):
+        if self.kind == "privacy_preset":
+            preset = PRIVACY_PRESETS[state]
+            url = "https://open.ys7.com/api/lapp/device/preset/move"
+            ctrl = {
+                "accessToken": self.coordinator.data["params"]["accessToken"],
+                "deviceSerial": self._deviceserial,
+                "channelNo": self._channelno,
+                "index": preset,
+            }
+            await self._hass.async_add_executor_job(requests.post, url, ctrl)
+
+        elif self.kind == "detect":
+            preset = PRIVACY_PRESETS[state]
+            url = "https://open.ys7.com/api/v3/device/detect/switch/set"
+            ctrl = {
+                "accessToken": self.coordinator.data["params"]["accessToken"],
+                "deviceSerial": self._deviceserial,
+                "type": 8 if state == "on" else 0,
+            }
+            await self._hass.async_add_executor_job(requests.post, url, ctrl)
 

@@ -1,7 +1,5 @@
 """Ezviz Entities"""
 import logging
-import time
-import datetime
 import json
 import requests
 from async_timeout import timeout
@@ -12,10 +10,6 @@ from homeassistant.components.button import ButtonEntity
 from .const import (
     COORDINATOR, 
     DOMAIN, 
-    UNDO_UPDATE_LISTENER,
-    CONF_STATE_DETECTION_RULES,
-    CONF_SWITCHS,
-    CONF_BUTTONS,
     BUTTON_TYPES,
 )
 
@@ -61,16 +55,16 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
                         if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_left_right",'0') =='0':
                             buttontypes["left"] = None
                             buttontypes["right"] = None
-                        if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_zoom") =='1':
-                            buttontypes["zoombig"] = BUTTON_TYPES["zoombig"]
-                            buttontypes["zoomsmall"] = BUTTON_TYPES["zoomsmall"]
-                        if coordinator.data["capacity"][device["deviceSerial"]].get("support_capture") =='1':
-                            buttontypes["capture"] = BUTTON_TYPES["capture"]
-                            buttontypes["vehicleprops"] = BUTTON_TYPES["vehicleprops"]
-                            buttontypes["humandetect"] = BUTTON_TYPES["humandetect"]
-                            buttontypes["humanbody"] = BUTTON_TYPES["humanbody"]
-                            buttontypes["facedetect"] = BUTTON_TYPES["facedetect"]
-                        buttontypes["liveget"] = BUTTON_TYPES["liveget"]
+                        # if coordinator.data["capacity"][device["deviceSerial"]].get("ptz_zoom") =='1':
+                        #     buttontypes["zoombig"] = BUTTON_TYPES["zoombig"]
+                        #     buttontypes["zoomsmall"] = BUTTON_TYPES["zoomsmall"]
+                        # if coordinator.data["capacity"][device["deviceSerial"]].get("support_capture") =='1':
+                        #     buttontypes["capture"] = BUTTON_TYPES["capture"]
+                            # buttontypes["vehicleprops"] = BUTTON_TYPES["vehicleprops"]
+                            # buttontypes["humandetect"] = BUTTON_TYPES["humandetect"]
+                            # buttontypes["humanbody"] = BUTTON_TYPES["humanbody"]
+                            # buttontypes["facedetect"] = BUTTON_TYPES["facedetect"]
+                        # buttontypes["liveget"] = BUTTON_TYPES["liveget"]
 
 
                         buttontypes = {key: value for key, value in buttontypes.items() if value is not None}        

@@ -29,7 +29,13 @@ SWITCH_TYPES = {
     'on_off': ['ezviz_onoff', '摄像头开关', 'mdi:toggle-switch'],
     'defence': ['ezviz_defence', '摄像头移动侦测', 'mdi:alarm-light'],
     'soundswitch': ['ezviz_soundswitch', '设备麦克风', 'mdi:microphone'], 
-    'privacy_preset': ['privacy_preset', '隐私遮蔽', 'mdi:eye-off'],
+    'privacy_preset': ['privacy_preset', '隐私遮蔽', 'mdi:eye-off', False],
+    'detect': ['ezviz_detect', '人形预警', 'mdi:alarm-light', True],
+}
+
+PRIVACY_PRESETS = {
+    "on": 2,    # 遮蔽位（你在萤石里设置的预置位号）
+    "off": 1,   # 监控位
 }
 
 BUTTON_TYPES = {
@@ -103,76 +109,76 @@ BUTTON_TYPES = {
         "direc": 7,
         "action": "move",
     },
-    "zoombig": {
-        "name": "放大",
-        "device_class": "restart",
-        "icon": "mdi:magnify-plus",
-        "direc": 8,
-        "action": "move",
-    },
-    "zoomsmall": {
-        "name": "缩小",
-        "device_class": "restart",
-        "icon": "mdi:magnify-minus",
-        "direc": 9,
-        "action": "move",
-    },
-    "zoomnear": {
-        "name": "近焦距",
-        "device_class": "restart",
-        "icon": "mdi:magnify-minus-cursor",
-        "direc": 10,
-        "action": "move",
-    },
-    "zoomfar": {
-        "name": "远焦距",
-        "device_class": "restart",
-        "icon": "mdi:magnify-plus-cursor",
-        "direc": 11,
-        "action": "move",
-    },
-    "zoomauto": {
-        "name": "自动控制",
-        "device_class": "restart",
-        "icon": "mdi:autorenew",
-        "direc": 16,
-        "action": "move",
-    },
-    "vehicleprops": {
-        "name": "车牌识别",
-        "device_class": "restart",
-        "icon": "mdi:car-search",
-        "direc": "",
-        "action": "vehicleprops",
-    },
-    "humandetect": {
-        "name": "人形检测",
-        "device_class": "restart",
-        "icon": "mdi:human",
-        "direc": "",
-        "action": "humandetect",
-    },
-    "humanbody": {
-        "name": "人体属性识别",
-        "device_class": "restart",
-        "icon": "mdi:human-male-female-child",
-        "direc": "",
-        "action": "humanbody",
-    },
-    "facedetect": {
-        "name": "人脸检测",
-        "device_class": "restart",
-        "icon": "mdi:face-agent",
-        "direc": "",
-        "action": "facedetect",
-    },
-    "liveget": {
-        "name": "获取直播地址(5分钟)",
-        "device_class": "restart",
-        "icon": "mdi:monitor-eye",
-        "direc": "",
-        "action": "liveget",
-    }    
+    # "zoombig": {
+    #     "name": "放大",
+    #     "device_class": "restart",
+    #     "icon": "mdi:magnify-plus",
+    #     "direc": 8,
+    #     "action": "move",
+    # },
+    # "zoomsmall": {
+    #     "name": "缩小",
+    #     "device_class": "restart",
+    #     "icon": "mdi:magnify-minus",
+    #     "direc": 9,
+    #     "action": "move",
+    # },
+    # "zoomnear": {
+    #     "name": "近焦距",
+    #     "device_class": "restart",
+    #     "icon": "mdi:magnify-minus-cursor",
+    #     "direc": 10,
+    #     "action": "move",
+    # },
+    # "zoomfar": {
+    #     "name": "远焦距",
+    #     "device_class": "restart",
+    #     "icon": "mdi:magnify-plus-cursor",
+    #     "direc": 11,
+    #     "action": "move",
+    # },
+    # "zoomauto": {
+    #     "name": "自动控制",
+    #     "device_class": "restart",
+    #     "icon": "mdi:autorenew",
+    #     "direc": 16,
+    #     "action": "move",
+    # },
+    # "vehicleprops": {
+    #     "name": "车牌识别",
+    #     "device_class": "restart",
+    #     "icon": "mdi:car-search",
+    #     "direc": "",
+    #     "action": "vehicleprops",
+    # },
+    # "humandetect": {
+    #     "name": "人形检测",
+    #     "device_class": "restart",
+    #     "icon": "mdi:human",
+    #     "direc": "",
+    #     "action": "humandetect",
+    # },
+    # "humanbody": {
+    #     "name": "人体属性识别",
+    #     "device_class": "restart",
+    #     "icon": "mdi:human-male-female-child",
+    #     "direc": "",
+    #     "action": "humanbody",
+    # },
+    # "facedetect": {
+    #     "name": "人脸检测",
+    #     "device_class": "restart",
+    #     "icon": "mdi:face-agent",
+    #     "direc": "",
+    #     "action": "facedetect",
+    # },
+    # "liveget": {
+    #     "name": "获取直播地址(5分钟)",
+    #     "device_class": "restart",
+    #     "icon": "mdi:monitor-eye",
+    #     "direc": "",
+    #     "action": "liveget",
+    # }    
 }
 
 
