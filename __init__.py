@@ -174,6 +174,20 @@ class DataUpdateCoordinator(DataUpdateCoordinator):
         except Exception as e:
             _LOGGER.error("requst url:{url} Error:{err}".format(url=url,err=e))
             return None 
+        
+    def sendHttpGetHeader(self, url, data, header):
+        try:            
+            resp = requests.get(url, headers=header, data = data, timeout=TIMEOUT_SECONDS)
+            _LOGGER.debug("get url:" + url)
+            json_text = resp.text
+            if self.is_json(json_text):
+                resdata = json.loads(json_text)
+            else:
+                resdata = resp
+            return resdata
+        except Exception as e:
+            _LOGGER.error("requst url:{url} Error:{err}".format(url=url,err=e))
+            return None 
             
     async def GetToken(self):
         response = await self._hass.async_add_executor_job(self.sendHttpPost,'https://open.ys7.com/api/lapp/token/get', self._apikey)
@@ -264,6 +278,68 @@ class DataUpdateCoordinator(DataUpdateCoordinator):
         else:
             _LOGGER.error("Error API return in GetDeviceonoff, code=%s, msg=%s",response['code'],response['msg'])
 
+    # async def GetDeviceHumanDetect(self, deviceserial):
+    #     """查询设备的人形检测状态"""
+    #     url = "https://open.ys7.com/api/v3/das/device/detect/switch/get"
+    #     header = {
+    #         "accessToken": self._params["accessToken"],
+    #         "deviceSerial": deviceserial,
+    #     }
+
+    #     try:
+    #         response = await self._hass.async_add_executor_job(self.sendHttpGetHeader, url, {}, header)
+    #         if response["code"] == "200":
+    #             # 更新数据
+    #             self._data[deviceserial]["detect"] = response["data"]["valueInfo"]["type"] == 8
+    #             _LOGGER.debug(f"Human detect status for {deviceserial}: {response['data']}")
+    #         else:
+    #             _LOGGER.error(f"Failed to get human detect status for {deviceserial}, {response['msg']}")
+    #     except Exception:
+    #         _LOGGER.error("detect get", response)
+
+    async def GetDeviceHumanDetect(self, deviceserial: str):
+        """Get human detect switch status from Ezviz cloud"""
+
+        header = {
+            "accessToken": self._params["accessToken"],
+            "deviceSerial": deviceserial,
+        }
+
+        response = await self._hass.async_add_executor_job(
+            self.sendHttpGetHeader,
+            "https://open.ys7.com/api/v3/das/device/detect/switch/get",
+            {},
+            header
+        )
+
+        _LOGGER.debug("GetDeviceHumanDetect %s response: %s", deviceserial, response)
+
+        if not response or response.get("code") != "200":
+            _LOGGER.error(
+                "Error API return in GetDeviceHumanDetect, code=%s, msg=%s",
+                response.get("code"),
+                response.get("msg"),
+            )
+            return
+
+        # 萤石接口返回 enable: 0/4/8
+        cloud_enable = 1 if response["data"]["valueInfo"]["type"] == 8 else 0
+
+        # ---------- 关键：防止刚 set 完就被云端旧值覆盖 ----------
+        device_data = self._data.setdefault(deviceserial, {})
+        last_local_ts = device_data.get("_humanDetect_local_ts", 0)
+
+        # 5 秒内发生过本地 set，则跳过本次覆盖
+        if time.time() - last_local_ts < 5:
+            _LOGGER.debug(
+                "Skip overwrite humanDetect for %s (local change within 5s)",
+                deviceserial,
+            )
+            return
+        
+        device_data["humanDetect"] = cloud_enable
+
+
     async def _async_update_data(self):
         """Update data via DataFetcher."""
         if self._expiretime < time.time()*1000 + 10*60*1000 : #提前10分钟更新token，防止switch操作时可能出现过期情况。
@@ -293,6 +369,13 @@ class DataUpdateCoordinator(DataUpdateCoordinator):
                 asyncio.create_task(self.GetDeviceInfo(device["deviceSerial"])), 
             ]
             await asyncio.gather(*tasks)
+
+            # tasks = [            
+            #     asyncio.create_task(self.GetDeviceHumanDetect(device["deviceSerial"])),
+            # ]
+            # await asyncio.gather(*tasks)
+            await self.GetDeviceHumanDetect(device["deviceSerial"])
+
             if "on_off" in self._haswitchs:
                 if self._support_onoff(device["deviceSerial"]):
                     tasks = [            

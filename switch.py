@@ -4,6 +4,7 @@ import json
 import requests
 from async_timeout import timeout
 from aiohttp.client_exceptions import ClientConnectorError
+import time
 
 from homeassistant.components.switch import SwitchEntity
 
@@ -185,19 +186,43 @@ class EzvizSwitch(SwitchEntity):
             return False
         return True
 
-    def sendHttpPost(self, url, data):
-        try:            
-            resp = requests.post(url, data = data, timeout=TIMEOUT_SECONDS)
-            _LOGGER.debug(url)
-            json_text = resp.text
-            if self.is_json(json_text):
-                resdata = json.loads(json_text)
-            else:
-                resdata = resp
-            return resdata
+    # def sendHttpPost(self, url, data):
+    #     try:            
+    #         resp = requests.post(url, data = data, timeout=TIMEOUT_SECONDS)
+    #         _LOGGER.debug(url)
+    #         json_text = resp.text
+    #         if self.is_json(json_text):
+    #             resdata = json.loads(json_text)
+    #         else:
+    #             resdata = resp
+    #         return resdata
+    #     except Exception as e:
+    #         _LOGGER.error("requst url:{url} Error:{err}".format(url=url,err=e))
+    #         return None 
+
+    def sendHttpPost(self, url, data, headers=None):
+        try:
+            resp = requests.post(
+                url,
+                data=data,
+                headers=headers,
+                timeout=TIMEOUT_SECONDS,
+            )
+            _LOGGER.debug("POST %s status=%s", url, resp.status_code)
+
+            try:
+                return resp.json()   # 永远返回 dict
+            except ValueError:
+                _LOGGER.error(
+                    "Non-JSON response from %s: %s",
+                    url,
+                    resp.text,
+                )
+                return None
         except Exception as e:
-            _LOGGER.error("requst url:{url} Error:{err}".format(url=url,err=e))
-            return None 
+            _LOGGER.error("request url:%s error:%s", url, e)
+            return None
+
         
     async def _switch(self, action): 
         _LOGGER.debug(self.kind)
@@ -309,14 +334,37 @@ class EzvizPrivacySwitch(SwitchEntity):
             "sw_version": self._deviceVersion,
         }
 
-        self._is_on = SWITCH_TYPES[self.kind][3]  # HA 内部状态
-        self._attr_icon = "mdi:eye-off"
+        self._is_on = True if SWITCH_TYPES[self.kind][3] else False  # HA 内部状态
+        self._attr_icon = SWITCH_TYPES[self.kind][2]
         self._attr_name = SWITCH_TYPES[self.kind][1]
         self._attr_unique_id = f"{DOMAIN}_switch_{self.kind}_{self._deviceserial}"
 
     @property
     def is_on(self):
-        return self._is_on
+        return self.coordinator.data.get(self._deviceserial, {}).get("humanDetect", 0) if self.kind == "detect" else self._is_on
+
+    def sendHttpPost(self, url, data, headers=None):
+        try:
+            resp = requests.post(
+                url,
+                data=data,
+                headers=headers,
+                timeout=TIMEOUT_SECONDS,
+            )
+            _LOGGER.debug("POST %s status=%s", url, resp.status_code)
+
+            try:
+                return resp.json()   # 永远返回 dict
+            except ValueError:
+                _LOGGER.error(
+                    "Non-JSON response from %s: %s",
+                    url,
+                    resp.text,
+                )
+                return None
+        except Exception as e:
+            _LOGGER.error("request url:%s error:%s", url, e)
+            return None
 
     async def async_turn_on(self, **kwargs):
         await self._switch("on")
@@ -341,12 +389,25 @@ class EzvizPrivacySwitch(SwitchEntity):
             await self._hass.async_add_executor_job(requests.post, url, ctrl)
 
         elif self.kind == "detect":
-            preset = PRIVACY_PRESETS[state]
             url = "https://open.ys7.com/api/v3/device/detect/switch/set"
             ctrl = {
                 "accessToken": self.coordinator.data["params"]["accessToken"],
                 "deviceSerial": self._deviceserial,
                 "type": 8 if state == "on" else 0,
             }
-            await self._hass.async_add_executor_job(requests.post, url, ctrl)
+            # response = await self._hass.async_add_executor_job(requests.post, url, ctrl)
+            response = await self._hass.async_add_executor_job(
+                self.sendHttpPost, url, ctrl
+            )
+
+            if response and response.get("code") == "200":
+                device_data = self.coordinator.data.setdefault(self._deviceserial, {})
+                device_data["humanDetect"] = 1 if state == "on" else 0
+                device_data["_humanDetect_local_ts"] = time.time()
+            else:
+                _LOGGER.error(
+                    "Set humanDetect failed for %s: %s",
+                    self._deviceserial,
+                    response,
+                )
 
